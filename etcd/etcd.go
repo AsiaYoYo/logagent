@@ -53,3 +53,20 @@ func GetConf(key string) (LogEntryConf []*LogEntry, err error) {
 	}
 	return
 }
+
+// WatchConf 监听未来配置文件的改动
+func WatchConf(key string, newConfChan chan<- []*LogEntry) {
+	// watch key change
+	rch := cli.Watch(context.Background(), key) // <-chan WatchResponse
+	for wresp := range rch {
+		for _, ev := range wresp.Events {
+			fmt.Printf("Type: %s Key:%s Value:%s\n", ev.Type, ev.Kv.Key, ev.Kv.Value)
+			if ev.Type != clientv3.EventTypeDelete {
+				// fmt.Printf("ev.Type: %v, ev.Kv.Value: %v\n", ev.Type, ev.Kv.Value)
+				var newConf []*LogEntry
+				json.Unmarshal(ev.Kv.Value, &newConf)
+				newConfChan <- newConf
+			}
+		}
+	}
+}

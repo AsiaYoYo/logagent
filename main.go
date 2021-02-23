@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"gopkg.in/ini.v1"
@@ -46,11 +47,18 @@ func main() {
 		return
 	}
 	fmt.Printf("get conf from etcd success, %v\n", logEntryConf)
-	// 2.2 派一个哨兵监听配置
 
 	// 3.收集日志发往kafka
 	// 3.1 循环每一个日志收集项
 	taillog.Init(logEntryConf)
+	// 3.2 拿到taillog向外暴露的newConfChan
+	newConfChan := taillog.NewConfChan()
 
-	run()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	// 3.3 派一个哨兵监听配置，开启goroutine监控配置，并将新的配置发送到newConfChan通道中
+	go etcd.WatchConf(cfg.EtcdConf.Key, newConfChan)
+	wg.Wait()
+
+	// run()
 }
