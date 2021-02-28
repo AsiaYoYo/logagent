@@ -11,6 +11,7 @@ import (
 	"logagent/etcd"
 	"logagent/kafka"
 	"logagent/taillog"
+	"logagent/utils"
 )
 
 var cfg = new(conf.AppConf)
@@ -41,7 +42,9 @@ func main() {
 	}
 	fmt.Println("init etcd success")
 	// 2.1 从etcd中获取日志收集的配置信息
-	logEntryConf, err := etcd.GetConf(cfg.EtcdConf.Key)
+	ip := utils.GetOutboundIP()
+	etcdConfKey := fmt.Sprintf(cfg.EtcdConf.Key, ip)
+	logEntryConf, err := etcd.GetConf(etcdConfKey)
 	if err != nil {
 		fmt.Printf("etcd.GetConf failed, err:%v\n", err)
 		return
@@ -57,7 +60,7 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	// 3.3 派一个哨兵监听配置，开启goroutine监控配置，并将新的配置发送到newConfChan通道中
-	go etcd.WatchConf(cfg.EtcdConf.Key, newConfChan)
+	go etcd.WatchConf(etcdConfKey, newConfChan)
 	wg.Wait()
 
 	// run()

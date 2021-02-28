@@ -1,6 +1,7 @@
 package taillog
 
 import (
+	"context"
 	"fmt"
 	"logagent/kafka"
 	"time"
@@ -19,13 +20,19 @@ type TailTask struct {
 	path     string
 	topic    string
 	instance *tail.Tail
+	// 为了能实现退出t.run()
+	ctx        context.Context
+	cancelFunc context.CancelFunc
 }
 
 // NewTailTask TailTask结构体构造函数
 func NewTailTask(path, topic string) (tailTask *TailTask) {
+	ctx, cancel := context.WithCancel(context.Background())
 	tailTask = &TailTask{
-		path:  path,
-		topic: topic,
+		path:       path,
+		topic:      topic,
+		ctx:        ctx,
+		cancelFunc: cancel,
 	}
 	tailTask.init()
 	return
@@ -54,6 +61,9 @@ func (t *TailTask) init() (err error) {
 func (t *TailTask) run() {
 	for {
 		select {
+		case <-t.ctx.Done():
+			fmt.Printf("%s_%s, 结束了\n", t.path, t.topic)
+			return
 		case line := <-t.instance.Lines:
 			// 收集日志发往kafka
 			// kafka.SendToKafka(t.topic, line.Text) // 这里存在函数调函数，可能影响程序效率
